@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, LoginForm, MessageForm
+from forms import UserAddForm, LoginForm, MessageForm, UserEditForm
 from models import db, connect_db, User, Message
 
 CURR_USER_KEY = "curr_user"
@@ -32,7 +32,6 @@ connect_db(app)
 @app.before_request
 def add_user_to_g():
     """If we're logged in, add curr user to Flask global."""
-
     if CURR_USER_KEY in session:
         g.user = User.query.get(session[CURR_USER_KEY])
 
@@ -112,6 +111,9 @@ def login():
 @app.route('/logout', methods=["POST"])
 def logout():
     """Handle logout of user."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
 
     do_logout()
     flash("You are logged out!", "danger")
@@ -127,6 +129,9 @@ def list_users():
 
     Can take a 'q' param in querystring to search by that username.
     """
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
 
     search = request.args.get('q')
 
@@ -141,7 +146,10 @@ def list_users():
 @app.route('/users/<int:user_id>')
 def users_show(user_id):
     """Show user profile."""
-
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+    
     user = User.query.get_or_404(user_id)
 
     # snagging messages in order from the database;
@@ -170,7 +178,6 @@ def show_following(user_id):
 @app.route('/users/<int:user_id>/followers')
 def users_followers(user_id):
     """Show list of followers of this user."""
-
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
@@ -197,7 +204,7 @@ def add_follow(follow_id):
 @app.route('/users/stop-following/<int:follow_id>', methods=['POST'])
 def stop_following(follow_id):
     """Have currently-logged-in-user stop following this user."""
-
+    
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
@@ -212,14 +219,37 @@ def stop_following(follow_id):
 @app.route('/users/profile', methods=["GET", "POST"])
 def profile():
     """Update profile for current user."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+    user = g.user
+    form = UserEditForm(obj=user) 
 
+
+    if form.validate_on_submit():
+        username=form.username.data
+        email = form.email.data
+        image_url = form.image_url.data
+        header_image_url = form.header_image_url.data
+        bio=form.bio.data
+        is_valid=User.authenticate(g.user.username,form.password.data)
+
+        if is_valid:
+            user.update(username,email,image_url,header_image_url,bio)
+        else:
+            flash ("Edits were not saved! Password is wrong.", "danger")
+            return redirect(f"/users/profile")
+        flash("Edits saved successfully!", "success")
+        return redirect(f"/users/{g.user.id}")
+    else:  
+        return render_template("users/edit.html", form=form)
     # IMPLEMENT THIS
 
 
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
     """Delete user."""
-
+    
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
@@ -261,6 +291,9 @@ def messages_add():
 @app.route('/messages/<int:message_id>', methods=["GET"])
 def messages_show(message_id):
     """Show a message."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
 
     msg = Message.query.get(message_id)
     return render_template('messages/show.html', message=msg)
@@ -294,8 +327,12 @@ def homepage():
     """
 
     if g.user:
+        followed = [a.id for a in g.user.following]
+        followed.append(g.user.id)
+        print(followed)
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(followed))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())

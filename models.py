@@ -130,6 +130,14 @@ class User(db.Model):
         found_user_list = [user for user in self.following if user == other_user]
         return len(found_user_list) == 1
 
+    def update(self, u,e,i,h,b):
+        self.username=u
+        self.email=e
+        self.image_url=i
+        self.header_image_url=h
+        self.bio=b
+        db.session.commit()
+    
     @classmethod
     def signup(cls, username, email, password, image_url):
         """Sign up user.
