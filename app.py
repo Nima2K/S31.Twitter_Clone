@@ -1,11 +1,11 @@
 import os
-
+import pdb
 from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
 from forms import UserAddForm, LoginForm, MessageForm, UserEditForm
-from models import db, connect_db, User, Message
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
@@ -73,6 +73,9 @@ def signup():
                 password=form.password.data,
                 email=form.email.data,
                 image_url=form.image_url.data or User.image_url.default.arg,
+                header_image_url=form.header_image_url.data or User.header_image_url.default.arg,
+                bio = form.bio.data or User.bio.default.arg,
+                location = form.location.data or User.location.default.arg
             )
             db.session.commit()
 
@@ -262,6 +265,23 @@ def delete_user():
     return redirect("/signup")
 
 
+@app.route('/users/add_like/<int:post_id>', methods=["POST"])
+def add_like(post_id):
+    Likes.like(g.user.id, post_id)
+    return redirect(f"/users/{g.user.id}/likes")
+
+@app.route('/users/remove_like/<int:post_id>', methods=["POST"])
+def remove_like(post_id):
+    Likes.unlike(g.user.id, post_id)
+    return redirect(f"/users/{g.user.id}/likes")
+
+@app.route('/users/<int:user_id>/likes')
+def users_likes(user_id):
+    """Show list of posts liked by this user."""
+
+    user = User.query.get_or_404(user_id)
+    return render_template('users/likes.html', user=user)
+
 ##############################################################################
 # Messages routes:
 
@@ -313,7 +333,6 @@ def messages_destroy(message_id):
 
     return redirect(f"/users/{g.user.id}")
 
-
 ##############################################################################
 # Homepage and error pages
 
@@ -341,7 +360,6 @@ def homepage():
 
     else:
         return render_template('home-anon.html')
-
 
 ##############################################################################
 # Turn off all caching in Flask

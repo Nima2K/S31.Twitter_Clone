@@ -1,5 +1,5 @@
 """SQLAlchemy models for Warbler."""
-
+import pdb
 from datetime import datetime
 
 from flask_bcrypt import Bcrypt
@@ -32,20 +32,29 @@ class Likes(db.Model):
 
     __tablename__ = 'likes' 
 
+    @classmethod
+    def like(cls, u, m):
+        l = cls(user_id=u, message_id=m)
+        db.session.add(l)
+        db.session.commit()
+    
+    @classmethod
+    def unlike(cls, u, m):
+        l = Likes.query.filter(Likes.user_id==u, Likes.message_id==m).all()[0]
+        db.session.delete(l)
+        db.session.commit()
+
     id = db.Column(
         db.Integer,
         primary_key=True
     )
-
     user_id = db.Column(
         db.Integer,
         db.ForeignKey('users.id', ondelete='cascade')
     )
-
     message_id = db.Column(
         db.Integer,
-        db.ForeignKey('messages.id', ondelete='cascade'),
-        unique=True
+        db.ForeignKey('messages.id', ondelete='cascade')
     )
 
 
@@ -139,7 +148,7 @@ class User(db.Model):
         db.session.commit()
     
     @classmethod
-    def signup(cls, username, email, password, image_url):
+    def signup(cls, username, email, password, image_url, header_image_url,bio,location):
         """Sign up user.
 
         Hashes password and adds user to system.
@@ -152,6 +161,9 @@ class User(db.Model):
             email=email,
             password=hashed_pwd,
             image_url=image_url,
+            header_image_url=header_image_url,
+            bio=bio,
+            location=location
         )
 
         db.session.add(user)
