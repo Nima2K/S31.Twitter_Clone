@@ -50,7 +50,7 @@
               <span class="text-muted">{{ msg.timestamp.strftime('%d %B %Y') }}</span>
               <p>{{ msg.text }}</p>
             </div>
-
+            {% if msg.user.id != g.user.id %}
             {% if msg in g.user.likes %}
             <form method="POST" action="/users/remove_like/{{ msg.id }}" id="messages-form" data-link="/">
               <button class="
@@ -71,6 +71,7 @@
                 <i class="fa fa-thumbs-up"></i> 
               </button>
             </form>
+            {% endif %}
             {% endif %}
           </li>
         {% endfor %}
